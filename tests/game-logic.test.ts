@@ -3,7 +3,9 @@ import { GAME_CONFIG } from '../src/game/config';
 import {
   applyPowerUp,
   createInitialState,
+  createWaveEnemies,
   fireShots,
+  getWaveAction,
   rectsOverlap,
   startRun,
   stepGame,
@@ -64,6 +66,47 @@ describe('Chart Invaders game logic', () => {
     expect(next.metrics.chartsReviewed).toBe(1);
   });
 
+  it('makes HCC MISS more valuable than peers in the same wave row', () => {
+    const enemies = createWaveEnemies(1);
+    const hccMiss = enemies.find((enemy) => enemy.kind === 'HCC MISS');
+    const peer = enemies.find((enemy) => enemy.row === hccMiss?.row && enemy.kind !== 'HCC MISS');
+
+    expect(hccMiss).toBeDefined();
+    expect(peer).toBeDefined();
+    expect(hccMiss?.points).toBeGreaterThan(peer?.points ?? 0);
+  });
+
+  it('creates varied enemy formations by wave', () => {
+    const chevron = createWaveEnemies(2).filter((enemy) => enemy.row === 0);
+    const splitStack = createWaveEnemies(3).filter((enemy) => enemy.row === 0);
+
+    expect(new Set(chevron.map((enemy) => enemy.y)).size).toBeGreaterThan(1);
+    expect(splitStack[1].x - splitStack[0].x).toBe(GAME_CONFIG.enemyWidth + 10);
+    expect(splitStack[4].x - splitStack[3].x).toBeGreaterThan(GAME_CONFIG.enemyWidth + 10);
+  });
+
+  it('varies enemy count each wave', () => {
+    expect(GAME_CONFIG.maxWaves).toBe(6);
+    expect([1, 2, 3, 4, 5, 6].map((wave) => createWaveEnemies(wave).length)).toEqual([
+      12,
+      18,
+      21,
+      25,
+      28,
+      32,
+    ]);
+  });
+
+  it('varies enemy action pressure by wave', () => {
+    const early = getWaveAction(1);
+    const fastSweep = getWaveAction(5);
+    const finalPush = getWaveAction(6);
+
+    expect(fastSweep.horizontalSpeed).toBeGreaterThan(early.horizontalSpeed);
+    expect(finalPush.driftSpeed).toBeGreaterThan(early.driftSpeed);
+    expect(finalPush.edgeDrop).toBeGreaterThan(early.edgeDrop);
+  });
+
   it('depletes integrity shields when an enemy crosses the pre-billing line', () => {
     const state = playingState();
     const enemy = {
@@ -122,7 +165,7 @@ describe('Chart Invaders game logic', () => {
     expect(next.completedReason).toBe('timerComplete');
   });
 
-  it('ends the run when the third wave is cleared', () => {
+  it('ends the run when the final wave is cleared', () => {
     const state = {
       ...playingState(),
       wave: GAME_CONFIG.maxWaves,

@@ -6,8 +6,8 @@ export const HIGH_SCORE_KEY = 'chart-invaders-high-score-v1';
 export const GAME_CONFIG: GameConfig = {
   width: 960,
   height: 540,
-  durationMs: 90_000,
-  maxWaves: 3,
+  durationMs: 120_000,
+  maxWaves: 6,
   initialShields: 3,
   billingLineY: 438,
   playerWidth: 112,

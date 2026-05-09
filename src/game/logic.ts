@@ -21,6 +21,90 @@ const EMPTY_METRICS: GameMetrics = {
   qualityGapsClosed: 0,
 };
 
+type FormationPattern = 'staggered' | 'chevron' | 'splitStack' | 'diamond' | 'gate' | 'cascade';
+
+interface WaveLayout {
+  rows: number;
+  columns: number;
+  gapX: number;
+  gapY: number;
+  startX: number;
+  startY: number;
+  pattern: FormationPattern;
+  speedMultiplier: number;
+  driftMultiplier: number;
+  edgeDropMultiplier: number;
+}
+
+const WAVE_LAYOUTS: Array<Omit<WaveLayout, 'startX'>> = [
+  {
+    rows: 3,
+    columns: 4,
+    gapX: 44,
+    gapY: 26,
+    startY: 78,
+    pattern: 'staggered',
+    speedMultiplier: 0.9,
+    driftMultiplier: 0.85,
+    edgeDropMultiplier: 0.8,
+  },
+  {
+    rows: 3,
+    columns: 6,
+    gapX: 18,
+    gapY: 28,
+    startY: 64,
+    pattern: 'chevron',
+    speedMultiplier: 1,
+    driftMultiplier: 1.05,
+    edgeDropMultiplier: 1,
+  },
+  {
+    rows: 3,
+    columns: 7,
+    gapX: 10,
+    gapY: 18,
+    startY: 58,
+    pattern: 'splitStack',
+    speedMultiplier: 1.2,
+    driftMultiplier: 0.8,
+    edgeDropMultiplier: 1.15,
+  },
+  {
+    rows: 5,
+    columns: 5,
+    gapX: 26,
+    gapY: 12,
+    startY: 54,
+    pattern: 'diamond',
+    speedMultiplier: 0.85,
+    driftMultiplier: 1.45,
+    edgeDropMultiplier: 0.9,
+  },
+  {
+    rows: 4,
+    columns: 7,
+    gapX: 8,
+    gapY: 16,
+    startY: 54,
+    pattern: 'gate',
+    speedMultiplier: 1.35,
+    driftMultiplier: 1.1,
+    edgeDropMultiplier: 1.25,
+  },
+  {
+    rows: 4,
+    columns: 8,
+    gapX: 4,
+    gapY: 14,
+    startY: 48,
+    pattern: 'cascade',
+    speedMultiplier: 1.15,
+    driftMultiplier: 1.6,
+    edgeDropMultiplier: 1.35,
+  },
+];
+
 export function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -91,29 +175,104 @@ export function createWaveEnemies(
   startId = 1,
   config = GAME_CONFIG,
 ) {
-  const rowsByWave = [3, 3, 4];
-  const columns = 6;
-  const rows = rowsByWave[wave - 1] ?? 4;
+  const layout = getWaveLayout(wave, config);
   const enemies: Enemy[] = [];
 
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const kind = ENEMY_KINDS[(row * columns + column + wave) % ENEMY_KINDS.length];
+  for (let row = 0; row < layout.rows; row += 1) {
+    for (let column = 0; column < layout.columns; column += 1) {
+      const kind = ENEMY_KINDS[(row * layout.columns + column + wave) % ENEMY_KINDS.length];
+      const basePoints = 75 + row * 20 + wave * 25;
+      const offset = formationOffset(layout, row, column, config);
       enemies.push({
         id: startId + enemies.length,
         kind,
         row,
-        x: config.enemyStartX + column * (config.enemyWidth + config.enemyGapX),
-        y: config.enemyStartY + row * (config.enemyHeight + config.enemyGapY),
+        x: layout.startX + column * (config.enemyWidth + layout.gapX) + offset.x,
+        y: layout.startY + row * (config.enemyHeight + layout.gapY) + offset.y,
         width: config.enemyWidth,
         height: config.enemyHeight,
-        points: 75 + row * 20 + wave * 25,
+        points: kind === 'HCC MISS' ? basePoints * 2 : basePoints,
         breachValue: 1,
       });
     }
   }
 
   return enemies;
+}
+
+export function getWaveAction(wave: number, config = GAME_CONFIG) {
+  const layout = getWaveLayout(wave, config);
+
+  return {
+    horizontalSpeed: (config.enemyBaseSpeed + wave * 13) * layout.speedMultiplier,
+    driftSpeed: config.enemyDriftDownPerSecond * layout.driftMultiplier,
+    edgeDrop: config.enemyDropOnEdge * layout.edgeDropMultiplier,
+  };
+}
+
+function getWaveLayout(wave: number, config: GameConfig): WaveLayout {
+  const layout = WAVE_LAYOUTS[(wave - 1) % WAVE_LAYOUTS.length];
+  const totalWidth = layout.columns * config.enemyWidth + (layout.columns - 1) * layout.gapX;
+  const maxStartX = Math.max(40, config.width - totalWidth - 40);
+  const startX = clamp((config.width - totalWidth) / 2, 40, maxStartX);
+
+  return {
+    ...layout,
+    startX,
+  };
+}
+
+function formationOffset(
+  layout: WaveLayout,
+  row: number,
+  column: number,
+  config: GameConfig,
+) {
+  const laneWidth = config.enemyWidth + layout.gapX;
+  const centerColumn = (layout.columns - 1) / 2;
+
+  if (layout.pattern === 'staggered') {
+    return {
+      x: row % 2 === 0 ? 0 : laneWidth * 0.38,
+      y: column % 2 === 0 ? 0 : 9,
+    };
+  }
+
+  if (layout.pattern === 'chevron') {
+    return {
+      x: 0,
+      y: Math.abs(column - centerColumn) * 12 + row * 4,
+    };
+  }
+
+  if (layout.pattern === 'splitStack') {
+    const isLeftStack = column < layout.columns / 2;
+    return {
+      x: (isLeftStack ? -24 : 24) + (row % 2 === 0 ? 0 : 12),
+      y: (column % Math.ceil(layout.columns / 2)) * 12 + (layout.rows - row - 1) * 3,
+    };
+  }
+
+  if (layout.pattern === 'gate') {
+    const isCenterColumn = column === Math.floor(layout.columns / 2);
+    return {
+      x: isCenterColumn ? 0 : column < layout.columns / 2 ? -18 : 18,
+      y: isCenterColumn ? 30 + row * 5 : Math.abs(column - centerColumn) * 8 + (row % 2) * 10,
+    };
+  }
+
+  if (layout.pattern === 'cascade') {
+    return {
+      x: row % 2 === 0 ? 0 : 6,
+      y: ((column + row) % 4) * 9 + column * 2,
+    };
+  }
+
+  const distanceFromCenter = Math.abs(column - centerColumn);
+  return {
+    x: (row % 2 === 0 ? -1 : 1) * distanceFromCenter * 8,
+    y: (layout.rows - row - 1) * 8 + distanceFromCenter * 10,
+  };
 }
 
 export function spawnWave(state: GameState, wave: number, config = GAME_CONFIG): GameState {
@@ -178,8 +337,9 @@ export function stepGame(state: GameState, deltaMs: number, config = GAME_CONFIG
   const dt = Math.min(deltaMs, 50) / 1000;
   const nextElapsed = Math.min(config.durationMs, state.elapsedMs + deltaMs);
   const slowMultiplier = hasActivePowerUp(state, 'Quality Scan') ? 0.5 : 1;
-  const enemySpeed = (config.enemyBaseSpeed + state.wave * 16) * slowMultiplier;
-  const enemyDrift = config.enemyDriftDownPerSecond * slowMultiplier;
+  const waveAction = getWaveAction(state.wave, config);
+  const enemySpeed = waveAction.horizontalSpeed * slowMultiplier;
+  const enemyDrift = waveAction.driftSpeed * slowMultiplier;
 
   let activePowerUps = state.activePowerUps
     .map((powerUp) => ({
@@ -205,7 +365,7 @@ export function stepGame(state: GameState, deltaMs: number, config = GAME_CONFIG
     enemies = enemies.map((enemy) => ({
       ...enemy,
       x: clamp(enemy.x, 16, config.width - enemy.width - 16),
-      y: enemy.y + config.enemyDropOnEdge,
+      y: enemy.y + waveAction.edgeDrop,
     }));
   }
 

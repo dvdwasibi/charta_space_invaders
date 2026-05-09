@@ -6,6 +6,7 @@ import {
   createInitialState,
   createWaveEnemies,
   finishGame,
+  getWaveAction,
 } from '../logic';
 import type {
   ActivePowerUp,
@@ -406,8 +407,9 @@ export class ChartInvadersScene extends Phaser.Scene {
     if (enemies.length === 0) return;
 
     const slowMultiplier = this.hasActivePowerUp('Quality Scan') ? 0.5 : 1;
-    const enemySpeed = (GAME_CONFIG.enemyBaseSpeed + this.state.wave * 16) * slowMultiplier;
-    const enemyDrift = GAME_CONFIG.enemyDriftDownPerSecond * slowMultiplier;
+    const waveAction = getWaveAction(this.state.wave, GAME_CONFIG);
+    const enemySpeed = waveAction.horizontalSpeed * slowMultiplier;
+    const enemyDrift = waveAction.driftSpeed * slowMultiplier;
     const dt = deltaMs / 1000;
 
     for (const enemy of enemies) {
@@ -422,7 +424,7 @@ export class ChartInvadersScene extends Phaser.Scene {
       this.state.direction = this.state.direction === 1 ? -1 : 1;
       for (const enemy of enemies) {
         enemy.x = clamp(enemy.x, enemy.displayWidth / 2 + 16, GAME_CONFIG.width - enemy.displayWidth / 2 - 16);
-        enemy.y += GAME_CONFIG.enemyDropOnEdge;
+        enemy.y += waveAction.edgeDrop;
         enemy.body.updateFromGameObject();
       }
     }
@@ -489,6 +491,17 @@ export class ChartInvadersScene extends Phaser.Scene {
 
     shot.destroy();
     const kind = enemy.getData('kind') as EnemyKind;
+    const remainingHits = ((enemy.getData('hitsRemaining') as number | undefined) ?? 1) - 1;
+    if (remainingHits > 0) {
+      enemy.setData('hitsRemaining', remainingHits);
+      enemy.setAlpha(0.76);
+      this.state.lastMessage = 'HCC MISS needs one more review pass.';
+      this.flashArmor(enemy.x, enemy.y);
+      this.callbacks.onSound('hit');
+      this.emitState(true);
+      return;
+    }
+
     const points = enemy.getData('points') as number;
     const row = enemy.getData('row') as number;
     this.state.score += points;
@@ -651,6 +664,7 @@ export class ChartInvadersScene extends Phaser.Scene {
         row: enemy.row,
         points: enemy.points,
         breachValue: enemy.breachValue,
+        hitsRemaining: enemy.kind === 'HCC MISS' ? 2 : 1,
       });
       sprite.body.setAllowGravity(false);
       sprite.body.setImmovable(true);
@@ -742,6 +756,20 @@ export class ChartInvadersScene extends Phaser.Scene {
       alpha: 0,
       scale: 2.6,
       duration: 240,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  private flashArmor(x: number, y: number) {
+    const flash = this.add.circle(x, y, 12, COLORS.magenta, 0.66)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(31);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scale: 2,
+      duration: 220,
       ease: 'Quad.easeOut',
       onComplete: () => flash.destroy(),
     });
@@ -939,6 +967,9 @@ export class ChartInvadersScene extends Phaser.Scene {
     context.font = '700 14px "Courier New", monospace';
     context.textBaseline = 'alphabetic';
     fitCanvasText(context, kind, 9, 31, GAME_CONFIG.enemyWidth - 18, 14);
+    if (kind === 'HCC MISS') {
+      drawHccArmorMarker(context);
+    }
     texture.refresh();
   }
 
@@ -1035,6 +1066,16 @@ function fitCanvasText(
     size -= 1;
   } while (size > 9);
   context.fillText(text, x, y);
+}
+
+function drawHccArmorMarker(context: CanvasRenderingContext2D) {
+  context.fillStyle = 'rgba(248, 117, 255, 0.92)';
+  context.fillRect(78, 29, 6, 6);
+  context.fillRect(87, 29, 6, 6);
+  context.strokeStyle = 'rgba(247, 241, 220, 0.76)';
+  context.lineWidth = 1;
+  context.strokeRect(78, 29, 6, 6);
+  context.strokeRect(87, 29, 6, 6);
 }
 
 function shotIntersectsEnemy(shot: ShotSprite, enemy: EnemySprite) {

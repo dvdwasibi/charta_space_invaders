@@ -93,8 +93,8 @@ export default function App() {
                 <p className="eyebrow">AI chart review arcade</p>
                 <h1>Chart Invaders</h1>
                 <p>
-                  Stop coding errors, documentation gaps, and denial risks before they cross the
-                  pre-billing line.
+                  Clear {GAME_CONFIG.maxWaves} escalating waves of coding errors,
+                  documentation gaps, and denial risks before they cross the pre-billing line.
                 </p>
                 <div className="control-strip" aria-label="Controls">
                   <span>Move: A/D or arrows</span>
