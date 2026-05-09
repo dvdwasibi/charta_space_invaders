@@ -1,0 +1,450 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    "Courier New",
+    "IBM Plex Mono",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+  background: #020406;
+  color: #e6fff8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --panel: rgba(7, 24, 23, 0.94);
+  --brand-green: #25413c;
+  --cream: #f7f1dc;
+  --green: #b6f1c8;
+  --cyan: #7eddd0;
+  --amber: #f4d482;
+  --red: #ff5161;
+  --ink: #edf9ef;
+  --muted: #9eb9af;
+  --border: rgba(182, 241, 200, 0.34);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: hidden;
+  background:
+    linear-gradient(rgba(182, 241, 200, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126, 221, 208, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at 25% 10%, rgba(126, 221, 208, 0.12), transparent 32rem),
+    radial-gradient(circle at 70% 110%, rgba(244, 212, 130, 0.08), transparent 28rem),
+    #020406;
+  background-size: 24px 24px, 24px 24px, auto, auto, auto;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.game-frame {
+  width: min(1180px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(37, 65, 60, 0.76), rgba(4, 9, 11, 0.96)),
+    var(--panel);
+  box-shadow:
+    0 0 0 2px rgba(126, 221, 208, 0.08),
+    0 18px 70px rgba(0, 0, 0, 0.62),
+    inset 0 0 42px rgba(182, 241, 200, 0.08);
+  padding: 16px;
+  position: relative;
+}
+
+.game-frame::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.045) 0,
+    rgba(255, 255, 255, 0.045) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  mix-blend-mode: screen;
+  opacity: 0.24;
+}
+
+.brand-ribbon,
+.console-row,
+.metrics-strip {
+  position: relative;
+  z-index: 2;
+}
+
+.brand-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--green);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brand-lockup img,
+.panel-logo {
+  display: block;
+  width: 116px;
+  height: auto;
+  background: var(--cream);
+  border: 1px solid rgba(247, 241, 220, 0.68);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.brand-lockup span {
+  color: var(--cream);
+  white-space: nowrap;
+}
+
+.hud-grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(180px, 1.25fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hud-tile {
+  border: 1px solid rgba(126, 221, 208, 0.24);
+  border-radius: 6px;
+  background: rgba(3, 21, 20, 0.78);
+  min-height: 58px;
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.hud-tile span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.hud-tile strong {
+  color: var(--ink);
+  font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-tile:nth-child(1) strong,
+.hud-tile:nth-child(2) strong {
+  color: var(--amber);
+}
+
+.hud-tile:nth-child(4) strong {
+  color: var(--red);
+}
+
+.screen-wrap {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  border: 1px solid rgba(182, 241, 200, 0.22);
+  border-radius: 8px;
+  background: #020608;
+  aspect-ratio: 16 / 9;
+}
+
+.game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+
+.screen-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(247, 241, 220, 0.08), rgba(0, 0, 0, 0)),
+    radial-gradient(circle at 50% 45%, rgba(7, 24, 23, 0.82), rgba(0, 0, 0, 0.72));
+}
+
+.screen-overlay.compact {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.terminal-panel {
+  width: min(620px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(247, 241, 220, 0.06), rgba(1, 12, 14, 0)),
+    rgba(1, 12, 14, 0.94);
+  box-shadow: 0 0 38px rgba(182, 241, 200, 0.12);
+  padding: clamp(18px, 3vw, 34px);
+  text-align: center;
+}
+
+.panel-logo {
+  margin: 0 auto 18px;
+  width: 132px;
+}
+
+.terminal-panel h1,
+.terminal-panel h2 {
+  margin: 0;
+  color: var(--green);
+  font-size: clamp(2rem, 7vw, 4.8rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(103, 255, 159, 0.48);
+}
+
+.terminal-panel h2 {
+  font-size: clamp(1.8rem, 5vw, 3.6rem);
+}
+
+.terminal-panel p {
+  color: var(--ink);
+  margin: 16px auto 0;
+  max-width: 54ch;
+  line-height: 1.55;
+}
+
+.eyebrow {
+  color: var(--amber) !important;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  margin-top: 0 !important;
+}
+
+.control-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.control-strip span {
+  border: 1px solid rgba(126, 221, 208, 0.3);
+  border-radius: 999px;
+  color: var(--cyan);
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  background: rgba(126, 221, 208, 0.08);
+}
+
+.primary-button,
+.secondary-button,
+.console-actions button {
+  border: 1px solid rgba(103, 255, 159, 0.54);
+  border-radius: 6px;
+  background: rgba(182, 241, 200, 0.12);
+  color: var(--green);
+  min-height: 42px;
+  padding: 10px 14px;
+  text-decoration: none;
+  text-transform: uppercase;
+  box-shadow: inset 0 0 18px rgba(182, 241, 200, 0.08);
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.console-actions button:hover:not(:disabled) {
+  background: rgba(182, 241, 200, 0.2);
+}
+
+.secondary-button {
+  border-color: rgba(126, 221, 208, 0.58);
+  color: var(--cyan);
+  background: rgba(126, 221, 208, 0.1);
+}
+
+.summary-panel {
+  max-height: 94%;
+  overflow: auto;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 18px;
+  margin-top: 18px;
+  text-align: left;
+}
+
+.summary-grid span {
+  color: var(--muted);
+}
+
+.summary-grid strong {
+  color: var(--amber);
+  text-align: right;
+}
+
+.summary-copy {
+  color: var(--ink);
+  font-size: 0.94rem;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.console-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(182, 241, 200, 0.18);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 12px;
+}
+
+.console-row p {
+  margin: 0;
+  color: var(--green);
+  min-width: 0;
+}
+
+.console-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.console-actions button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+}
+
+.metrics-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  margin-top: 12px;
+}
+
+@media (max-width: 800px) {
+  .app-shell {
+    padding: 10px;
+    place-items: start center;
+  }
+
+  .game-frame {
+    padding: 10px;
+  }
+
+  .brand-ribbon,
+  .console-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hud-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hud-tile-wide {
+    grid-column: span 2;
+  }
+
+  .terminal-panel {
+    padding: 18px;
+  }
+
+  .terminal-panel p {
+    font-size: 0.88rem;
+  }
+
+  .control-strip {
+    display: none;
+  }
+
+  .console-actions {
+    width: 100%;
+  }
+
+  .console-actions button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .hud-grid {
+    gap: 6px;
+  }
+
+  .hud-tile {
+    min-height: 52px;
+    padding: 7px 8px;
+  }
+
+  .hud-tile span,
+  .metrics-strip,
+  .console-actions button {
+    font-size: 0.68rem;
+  }
+
+  .hud-tile strong {
+    font-size: 0.84rem;
+  }
+}
