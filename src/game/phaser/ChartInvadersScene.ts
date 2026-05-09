@@ -51,6 +51,9 @@ const COLORS = {
   amber: 0xf4d482,
   red: 0xff5161,
   magenta: 0xf875ff,
+  violet: 0xa78bfa,
+  blue: 0x60a5fa,
+  lime: 0xc4f76f,
   text: '#edf9ef',
   muted: '#9eb9af',
 };
@@ -72,6 +75,16 @@ const POWER_UP_LABELS: Record<PowerUpKind, string> = {
   'Payer Compliance': 'PC',
   'Quality Scan': 'QS',
 };
+
+const REFLECTION_COLORS = [
+  COLORS.green,
+  COLORS.cyan,
+  COLORS.amber,
+  COLORS.magenta,
+  COLORS.violet,
+  COLORS.blue,
+  COLORS.lime,
+];
 
 const PROCEDURAL_TEXTURE_SCALE = 2;
 
@@ -479,6 +492,11 @@ export class ChartInvadersScene extends Phaser.Scene {
       enemy.x += this.state.direction * enemySpeed * dt;
       enemy.y += enemyDrift * dt;
       enemy.body.updateFromGameObject();
+      const nextReflectionAt = (enemy.getData('nextReflectionAt') as number | undefined) ?? 0;
+      if (this.state.elapsedMs >= nextReflectionAt) {
+        this.emitEnemyReflection(enemy, false);
+        enemy.setData('nextReflectionAt', this.state.elapsedMs + Phaser.Math.Between(520, 980));
+      }
     }
 
     const minX = Math.min(...enemies.map((enemy) => enemy.x - enemy.displayWidth / 2));
@@ -489,7 +507,9 @@ export class ChartInvadersScene extends Phaser.Scene {
         enemy.x = clamp(enemy.x, enemy.displayWidth / 2 + 16, GAME_CONFIG.width - enemy.displayWidth / 2 - 16);
         enemy.y += waveAction.edgeDrop;
         enemy.body.updateFromGameObject();
+        this.emitEnemyReflection(enemy, true);
       }
+      this.flashFormationBounce(this.state.direction);
     }
   }
 
@@ -1001,6 +1021,75 @@ export class ChartInvadersScene extends Phaser.Scene {
     }
   }
 
+  private emitEnemyReflection(enemy: EnemySprite, strong: boolean) {
+    const baseColor = ENEMY_COLORS[enemy.getData('kind') as EnemyKind] ?? COLORS.cyan;
+    const color = strong
+      ? REFLECTION_COLORS[(enemy.getData('id') as number) % REFLECTION_COLORS.length]
+      : blendEnemyReflectionColor(baseColor, this.state.elapsedMs + (enemy.getData('id') as number) * 97);
+    const direction = this.state.direction;
+    const count = strong ? 5 : 2;
+
+    for (let index = 0; index < count; index += 1) {
+      const glint = this.add.rectangle(
+        enemy.x + Phaser.Math.Between(-Math.round(enemy.displayWidth / 2), Math.round(enemy.displayWidth / 2)),
+        enemy.y + Phaser.Math.Between(-Math.round(enemy.displayHeight / 2), Math.round(enemy.displayHeight / 2)),
+        strong ? Phaser.Math.Between(10, 20) : Phaser.Math.Between(6, 12),
+        strong ? 3 : 2,
+        index === 0 ? baseColor : color,
+        strong ? 0.82 : 0.42,
+      )
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(strong ? 31 : 12);
+      glint.setRotation(Phaser.Math.FloatBetween(-0.5, 0.5));
+      this.tweens.add({
+        targets: glint,
+        x: glint.x - direction * Phaser.Math.Between(strong ? 24 : 12, strong ? 58 : 28),
+        y: glint.y + Phaser.Math.Between(-18, 18),
+        alpha: 0,
+        scaleX: strong ? 0.25 : 0.35,
+        duration: Phaser.Math.Between(strong ? 280 : 180, strong ? 460 : 320),
+        ease: 'Cubic.easeOut',
+        onComplete: () => glint.destroy(),
+      });
+    }
+
+    if (!strong) return;
+
+    const halo = this.add.circle(enemy.x, enemy.y, enemy.displayWidth * 0.34, color, 0.16)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(11);
+    this.tweens.add({
+      targets: halo,
+      alpha: 0,
+      scaleX: 2.2,
+      scaleY: 1.2,
+      duration: 360,
+      ease: 'Quad.easeOut',
+      onComplete: () => halo.destroy(),
+    });
+  }
+
+  private flashFormationBounce(direction: 1 | -1) {
+    const x = direction === 1 ? 32 : GAME_CONFIG.width - 32;
+    const stripe = this.add.rectangle(x, GAME_CONFIG.billingLineY / 2, 14, GAME_CONFIG.billingLineY - 42, COLORS.violet, 0.2)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(9);
+    const prism = this.add.rectangle(x, GAME_CONFIG.billingLineY / 2, 6, GAME_CONFIG.billingLineY - 82, COLORS.cyan, 0.36)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(10);
+    this.tweens.add({
+      targets: [stripe, prism],
+      alpha: 0,
+      scaleX: 2.8,
+      duration: 260,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        stripe.destroy();
+        prism.destroy();
+      },
+    });
+  }
+
   private flashPowerUpSpawn(x: number, y: number, kind: PowerUpKind) {
     const color = powerUpColor(kind);
     const aura = this.add.circle(x, y, 16)
@@ -1308,6 +1397,12 @@ function powerUpColor(kind: PowerUpKind) {
   if (kind === 'Revenue Discovery') return COLORS.amber;
   if (kind === 'Payer Compliance') return COLORS.cyan;
   return COLORS.magenta;
+}
+
+function blendEnemyReflectionColor(baseColor: number, seed: number) {
+  const paletteIndex = Math.floor(seed / 360) % REFLECTION_COLORS.length;
+  const accent = REFLECTION_COLORS[paletteIndex] ?? COLORS.cyan;
+  return seed % 3 === 0 ? baseColor : accent;
 }
 
 function numberToHex(value: number) {
