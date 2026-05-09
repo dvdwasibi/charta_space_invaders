@@ -95,6 +95,9 @@ export class ChartInvadersScene extends Phaser.Scene {
   private shipHull?: Phaser.GameObjects.Image;
   private leftFlame?: Phaser.GameObjects.Triangle;
   private rightFlame?: Phaser.GameObjects.Triangle;
+  private scanSweep?: Phaser.GameObjects.Rectangle;
+  private billingLineGlow?: Phaser.GameObjects.Rectangle;
+  private ambientSparks: Phaser.GameObjects.Rectangle[] = [];
   private lastHudEmitAt = 0;
   private lastPointerFireAt = -Number.MAX_SAFE_INTEGER;
 
@@ -114,6 +117,7 @@ export class ChartInvadersScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, GAME_CONFIG.width, GAME_CONFIG.height);
     this.createTextures();
     this.createBackdrop();
+    this.createAmbientEffects();
     this.createGroups();
     this.createShip();
     this.configureInput();
@@ -229,6 +233,65 @@ export class ChartInvadersScene extends Phaser.Scene {
       fontSize: '13px',
       fontStyle: '700',
     }).setOrigin(1, 0).setName('wave-label');
+  }
+
+  private createAmbientEffects() {
+    this.scanSweep = this.add.rectangle(GAME_CONFIG.width / 2, -26, GAME_CONFIG.width, 34, COLORS.cyan, 0.07)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(2);
+    this.tweens.add({
+      targets: this.scanSweep,
+      y: GAME_CONFIG.height + 26,
+      alpha: { from: 0.03, to: 0.12 },
+      duration: 3400,
+      ease: 'Sine.easeInOut',
+      repeat: -1,
+      yoyo: false,
+    });
+
+    this.billingLineGlow = this.add.rectangle(
+      GAME_CONFIG.width / 2,
+      GAME_CONFIG.billingLineY,
+      GAME_CONFIG.width - 52,
+      7,
+      COLORS.red,
+      0.16,
+    )
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(4);
+    this.tweens.add({
+      targets: this.billingLineGlow,
+      alpha: { from: 0.08, to: 0.3 },
+      scaleY: { from: 1, to: 2.1 },
+      duration: 820,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+
+    for (let index = 0; index < 18; index += 1) {
+      const spark = this.add.rectangle(
+        Phaser.Math.Between(38, GAME_CONFIG.width - 38),
+        Phaser.Math.Between(42, GAME_CONFIG.billingLineY - 36),
+        Phaser.Math.Between(2, 4),
+        Phaser.Math.Between(10, 28),
+        index % 3 === 0 ? COLORS.cyan : COLORS.green,
+        Phaser.Math.FloatBetween(0.08, 0.18),
+      )
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(3);
+      this.ambientSparks.push(spark);
+      this.tweens.add({
+        targets: spark,
+        y: spark.y + Phaser.Math.Between(70, 150),
+        alpha: { from: spark.alpha, to: 0.02 },
+        duration: Phaser.Math.Between(2200, 4200),
+        delay: Phaser.Math.Between(0, 1800),
+        repeat: -1,
+        yoyo: true,
+        ease: 'Sine.easeInOut',
+      });
+    }
   }
 
   private createGroups() {
@@ -439,6 +502,11 @@ export class ChartInvadersScene extends Phaser.Scene {
       shot.setData('previousY', shot.y);
       shot.x += (shot.getData('vx') as number) * dt;
       shot.y -= GAME_CONFIG.shotSpeed * dt;
+      const nextTrailAt = (shot.getData('nextTrailAt') as number | undefined) ?? 0;
+      if (this.state.elapsedMs >= nextTrailAt) {
+        this.emitShotTrail(shot.x, shot.y, shot.fillColor);
+        shot.setData('nextTrailAt', this.state.elapsedMs + 60);
+      }
     }
   }
 
@@ -455,6 +523,11 @@ export class ChartInvadersScene extends Phaser.Scene {
       powerUp.y += GAME_CONFIG.powerUpSpeed * dt;
       powerUp.rotation += 1.35 * dt;
       powerUp.body.updateFromGameObject();
+      const nextTrailAt = (powerUp.getData('nextTrailAt') as number | undefined) ?? 0;
+      if (this.state.elapsedMs >= nextTrailAt) {
+        this.emitPowerUpTrail(powerUp.x, powerUp.y, powerUpColor(powerUp.getData('kind') as PowerUpKind));
+        powerUp.setData('nextTrailAt', this.state.elapsedMs + 110);
+      }
 
       const id = powerUp.getData('id') as number;
       positions.set(id, {
@@ -497,6 +570,7 @@ export class ChartInvadersScene extends Phaser.Scene {
       enemy.setAlpha(0.76);
       this.state.lastMessage = 'HCC MISS needs one more review pass.';
       this.flashArmor(enemy.x, enemy.y);
+      this.emitDataBurst(enemy.x, enemy.y, COLORS.magenta, 6);
       this.callbacks.onSound('hit');
       this.emitState(true);
       return;
@@ -517,6 +591,7 @@ export class ChartInvadersScene extends Phaser.Scene {
 
     enemy.destroy();
     this.flashCorrection(enemy.x, enemy.y, row);
+    this.emitDataBurst(enemy.x, enemy.y, ENEMY_COLORS[kind], 9);
     this.callbacks.onSound('hit');
     this.emitState(true);
   }
@@ -527,6 +602,7 @@ export class ChartInvadersScene extends Phaser.Scene {
     const kind = powerUp.getData('kind') as PowerUpKind;
     powerUp.destroy();
     this.state.powerUps = this.state.powerUps.filter((item) => item.id !== id);
+    this.flashPowerUpCollect(powerUp.x, powerUp.y, kind);
     this.applyPowerUp(kind);
     this.callbacks.onSound('powerUp');
     this.emitState(true);
@@ -579,9 +655,12 @@ export class ChartInvadersScene extends Phaser.Scene {
       this.state.metrics = applyEnemyReward(this.state.metrics, kind);
       this.state.score += Math.round(points * 0.85);
       this.state.enemies = this.state.enemies.filter((item) => item.id !== id);
+      this.flashCorrection(enemy.x, enemy.y, enemy.getData('row') as number);
+      this.emitDataBurst(enemy.x, enemy.y, ENEMY_COLORS[kind], 6);
       enemy.destroy();
     }
 
+    this.flashAutonomousSweep();
     this.state.lastMessage = 'Autonomous Coding cleared the nearest row.';
   }
 
@@ -595,15 +674,18 @@ export class ChartInvadersScene extends Phaser.Scene {
       const id = enemy.getData('id') as number;
       const kind = enemy.getData('kind') as EnemyKind;
       const breachValue = enemy.getData('breachValue') as number;
+      const breachX = enemy.x;
       this.state.enemies = this.state.enemies.filter((item) => item.id !== id);
       enemy.destroy();
 
       if (this.state.payerComplianceBlocks > 0) {
         this.state.payerComplianceBlocks -= 1;
         this.state.lastMessage = `Payer Compliance blocked ${kind}.`;
+        this.flashComplianceBlock(breachX);
       } else {
         this.state.shields -= breachValue;
         this.state.lastMessage = `${kind} crossed the pre-billing line.`;
+        this.flashBreach(breachX);
         this.callbacks.onSound('breach');
       }
       this.emitState(true);
@@ -650,6 +732,7 @@ export class ChartInvadersScene extends Phaser.Scene {
     this.state.enemies = enemies;
     this.state.nextEnemyId += enemies.length;
     this.updateWaveLabel();
+    this.flashWaveIntro(wave);
 
     for (const enemy of enemies) {
       const sprite = this.physics.add.image(
@@ -671,6 +754,7 @@ export class ChartInvadersScene extends Phaser.Scene {
       sprite.body.setSize(enemy.width, enemy.height);
       sprite.setDepth(10);
       this.enemyGroup.add(sprite);
+      this.animateEnemySpawn(sprite, enemy);
     }
   }
 
@@ -698,6 +782,7 @@ export class ChartInvadersScene extends Phaser.Scene {
     sprite.body.setSize(GAME_CONFIG.powerUpSize, GAME_CONFIG.powerUpSize);
     sprite.setDepth(20);
     this.powerUpGroup.add(sprite);
+    this.flashPowerUpSpawn(x, y, kind);
   }
 
   private removeOffscreenObjects() {
@@ -759,6 +844,18 @@ export class ChartInvadersScene extends Phaser.Scene {
       ease: 'Quad.easeOut',
       onComplete: () => flash.destroy(),
     });
+    const ring = this.add.circle(x, y, 20)
+      .setStrokeStyle(2, color, 0.62)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(29);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scale: 2.2,
+      duration: 320,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
   }
 
   private flashArmor(x: number, y: number) {
@@ -787,6 +884,197 @@ export class ChartInvadersScene extends Phaser.Scene {
       duration: 120,
       ease: 'Quad.easeOut',
       onComplete: () => flash.destroy(),
+    });
+    const beam = this.add.rectangle(x, y - 28, spread ? 38 : 16, 52, color, 0.16)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(34);
+    this.tweens.add({
+      targets: beam,
+      alpha: 0,
+      scaleY: 1.5,
+      duration: 140,
+      ease: 'Quad.easeOut',
+      onComplete: () => beam.destroy(),
+    });
+  }
+
+  private animateEnemySpawn(sprite: EnemySprite, enemy: Enemy) {
+    const targetY = sprite.y;
+    const baseScaleX = sprite.scaleX;
+    const baseScaleY = sprite.scaleY;
+    sprite.setY(targetY - 22);
+    sprite.setAlpha(0);
+    sprite.setScale(baseScaleX * 0.72, baseScaleY * 0.72);
+    this.tweens.add({
+      targets: sprite,
+      y: targetY,
+      alpha: 1,
+      scaleX: baseScaleX,
+      scaleY: baseScaleY,
+      duration: 300,
+      delay: enemy.row * 70 + (enemy.id % 6) * 24,
+      ease: 'Back.easeOut',
+      onUpdate: () => sprite.body?.updateFromGameObject(),
+      onComplete: () => sprite.body?.updateFromGameObject(),
+    });
+  }
+
+  private flashWaveIntro(wave: number) {
+    const sweep = this.add.rectangle(GAME_CONFIG.width / 2, 76, GAME_CONFIG.width - 80, 4, COLORS.cyan, 0.46)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(35);
+    const label = this.add.text(GAME_CONFIG.width / 2, 86, `WAVE ${wave} SYNC`, {
+      color: '#b6f1c8',
+      fontFamily: 'Courier New, monospace',
+      fontSize: '18px',
+      fontStyle: '700',
+    })
+      .setOrigin(0.5)
+      .setAlpha(0)
+      .setDepth(36);
+    this.tweens.add({
+      targets: sweep,
+      x: GAME_CONFIG.width + 120,
+      alpha: 0,
+      duration: 520,
+      ease: 'Cubic.easeOut',
+      onComplete: () => sweep.destroy(),
+    });
+    this.tweens.add({
+      targets: label,
+      alpha: { from: 0, to: 0.92 },
+      y: 72,
+      duration: 260,
+      yoyo: true,
+      hold: 260,
+      ease: 'Sine.easeOut',
+      onComplete: () => label.destroy(),
+    });
+  }
+
+  private emitShotTrail(x: number, y: number, color: number) {
+    const trail = this.add.rectangle(x, y + 18, GAME_CONFIG.shotWidth + 12, GAME_CONFIG.shotHeight * 0.75, color, 0.18)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(23);
+    this.tweens.add({
+      targets: trail,
+      alpha: 0,
+      scaleX: 0.45,
+      y: y + 34,
+      duration: 150,
+      ease: 'Quad.easeOut',
+      onComplete: () => trail.destroy(),
+    });
+  }
+
+  private emitPowerUpTrail(x: number, y: number, color: number) {
+    const trail = this.add.circle(x, y, 10, color, 0.2)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(18);
+    this.tweens.add({
+      targets: trail,
+      alpha: 0,
+      scale: 0.2,
+      y: y - 18,
+      duration: 260,
+      ease: 'Quad.easeOut',
+      onComplete: () => trail.destroy(),
+    });
+  }
+
+  private emitDataBurst(x: number, y: number, color: number, count: number) {
+    for (let index = 0; index < count; index += 1) {
+      const shard = this.add.rectangle(x, y, Phaser.Math.Between(3, 7), 2, color, 0.78)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(32);
+      shard.setRotation(Phaser.Math.FloatBetween(0, Math.PI));
+      this.tweens.add({
+        targets: shard,
+        x: x + Phaser.Math.Between(-34, 34),
+        y: y + Phaser.Math.Between(-26, 30),
+        alpha: 0,
+        rotation: shard.rotation + Phaser.Math.FloatBetween(-1.2, 1.2),
+        duration: Phaser.Math.Between(220, 380),
+        ease: 'Cubic.easeOut',
+        onComplete: () => shard.destroy(),
+      });
+    }
+  }
+
+  private flashPowerUpSpawn(x: number, y: number, kind: PowerUpKind) {
+    const color = powerUpColor(kind);
+    const aura = this.add.circle(x, y, 16)
+      .setStrokeStyle(2, color, 0.7)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(19);
+    this.tweens.add({
+      targets: aura,
+      alpha: 0,
+      scale: 2,
+      duration: 420,
+      ease: 'Quad.easeOut',
+      onComplete: () => aura.destroy(),
+    });
+  }
+
+  private flashPowerUpCollect(x: number, y: number, kind: PowerUpKind) {
+    const color = powerUpColor(kind);
+    this.emitDataBurst(x, y, color, 12);
+    const burst = this.add.circle(x, y, 18, color, 0.32)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(33);
+    this.tweens.add({
+      targets: burst,
+      alpha: 0,
+      scale: 2.4,
+      duration: 360,
+      ease: 'Quad.easeOut',
+      onComplete: () => burst.destroy(),
+    });
+  }
+
+  private flashAutonomousSweep() {
+    const sweep = this.add.rectangle(GAME_CONFIG.width / 2, GAME_CONFIG.billingLineY - 72, GAME_CONFIG.width - 70, 34, COLORS.green, 0.18)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(33);
+    this.tweens.add({
+      targets: sweep,
+      y: 76,
+      alpha: 0,
+      duration: 360,
+      ease: 'Cubic.easeOut',
+      onComplete: () => sweep.destroy(),
+    });
+  }
+
+  private flashComplianceBlock(x: number) {
+    const shield = this.add.circle(x, GAME_CONFIG.billingLineY - 6, 24)
+      .setStrokeStyle(3, COLORS.cyan, 0.75)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(34);
+    this.tweens.add({
+      targets: shield,
+      alpha: 0,
+      scale: 2.1,
+      duration: 340,
+      ease: 'Quad.easeOut',
+      onComplete: () => shield.destroy(),
+    });
+  }
+
+  private flashBreach(x: number) {
+    this.cameras.main.flash(120, 255, 81, 97, false);
+    this.cameras.main.shake(130, 0.004);
+    const breach = this.add.rectangle(x, GAME_CONFIG.billingLineY, 52, 92, COLORS.red, 0.28)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(34);
+    this.tweens.add({
+      targets: breach,
+      alpha: 0,
+      scaleY: 1.5,
+      duration: 260,
+      ease: 'Quad.easeOut',
+      onComplete: () => breach.destroy(),
     });
   }
 
