@@ -105,6 +105,14 @@ export function usePhaserGame() {
     setMuted((current) => !current);
   }, []);
 
+  const setVirtualDirection = useCallback((direction: -1 | 0 | 1) => {
+    sceneRef.current?.setVirtualInput({ direction });
+  }, []);
+
+  const setVirtualFire = useCallback((fire: boolean) => {
+    sceneRef.current?.setVirtualInput({ fire });
+  }, []);
+
   const runSummary = useMemo(() => buildRunSummary(state), [state]);
 
   return {
@@ -116,5 +124,7 @@ export function usePhaserGame() {
     restartGame,
     togglePause,
     toggleMute,
+    setVirtualDirection,
+    setVirtualFire,
   };
 }

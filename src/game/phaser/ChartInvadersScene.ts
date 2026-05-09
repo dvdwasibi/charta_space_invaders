@@ -95,6 +95,7 @@ export class ChartInvadersScene extends Phaser.Scene {
   private shipHull?: Phaser.GameObjects.Image;
   private leftFlame?: Phaser.GameObjects.Triangle;
   private rightFlame?: Phaser.GameObjects.Triangle;
+  private virtualInput: { direction: -1 | 0 | 1; fire: boolean } = { direction: 0, fire: false };
   private scanSweep?: Phaser.GameObjects.Rectangle;
   private billingLineGlow?: Phaser.GameObjects.Rectangle;
   private ambientSparks: Phaser.GameObjects.Rectangle[] = [];
@@ -190,6 +191,13 @@ export class ChartInvadersScene extends Phaser.Scene {
 
   setMuted(_muted: boolean) {
     // Sound effects are generated in the React bridge so Phaser can stay focused on gameplay.
+  }
+
+  setVirtualInput(input: Partial<{ direction: -1 | 0 | 1; fire: boolean }>) {
+    this.virtualInput = {
+      ...this.virtualInput,
+      ...input,
+    };
   }
 
   private createBackdrop() {
@@ -390,7 +398,8 @@ export class ChartInvadersScene extends Phaser.Scene {
 
     const left = Boolean(this.cursors?.left.isDown || this.keys?.left.isDown);
     const right = Boolean(this.cursors?.right.isDown || this.keys?.right.isDown);
-    const direction = left === right ? 0 : left ? -1 : 1;
+    const keyboardDirection = left === right ? 0 : left ? -1 : 1;
+    const direction = keyboardDirection || this.virtualInput.direction;
     let centerX = this.playerHitbox.x + direction * GAME_CONFIG.playerSpeed * (deltaMs / 1000);
 
     const pointer = this.input.activePointer;
@@ -411,7 +420,12 @@ export class ChartInvadersScene extends Phaser.Scene {
       x: centerX - GAME_CONFIG.playerWidth / 2,
     };
 
-    const wantsFire = Boolean(this.cursors?.space.isDown || this.keys?.fire.isDown || pointer.isDown);
+    const wantsFire = Boolean(
+      this.cursors?.space.isDown ||
+        this.keys?.fire.isDown ||
+        pointer.isDown ||
+        this.virtualInput.fire,
+    );
     if (wantsFire) {
       this.fireShots(this.state.elapsedMs);
       this.lastPointerFireAt = this.state.elapsedMs;
