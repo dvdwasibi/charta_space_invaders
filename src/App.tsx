@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { CTA_URL, GAME_CONFIG, HIGH_SCORE_KEY } from './game/config';
-import { useChartInvadersGame } from './game/useChartInvadersGame';
+import { usePhaserGame } from './game/usePhaserGame';
 import type { ActivePowerUp } from './game/types';
 
 function formatTime(ms: number) {
@@ -28,7 +28,7 @@ function formatPowerUp(activePowerUps: ActivePowerUp[], payerComplianceBlocks: n
 
 export default function App() {
   const {
-    canvasRef,
+    containerRef,
     state,
     runSummary,
     muted,
@@ -36,7 +36,7 @@ export default function App() {
     restartGame,
     togglePause,
     toggleMute,
-  } = useChartInvadersGame();
+  } = usePhaserGame();
 
   const statusText = useMemo(() => {
     if (state.screen === 'paused') return 'Review Paused';
@@ -80,11 +80,9 @@ export default function App() {
         </div>
 
         <div className="screen-wrap">
-          <canvas
-            ref={canvasRef}
-            className="game-canvas"
-            width={GAME_CONFIG.width}
-            height={GAME_CONFIG.height}
+          <div
+            ref={containerRef}
+            className="phaser-game"
             aria-label="Chart Invaders playfield"
           />
 

@@ -198,12 +198,18 @@ button:disabled {
   aspect-ratio: 16 / 9;
 }
 
-.game-canvas {
+.phaser-game {
   display: block;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
+  min-height: 100%;
   touch-action: none;
+}
+
+.phaser-game canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .screen-overlay {
