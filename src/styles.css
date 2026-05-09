@@ -37,8 +37,14 @@ body,
   margin: 0;
 }
 
+html {
+  min-width: 320px;
+}
+
 body {
   overflow-x: hidden;
+  min-height: 100dvh;
+  overscroll-behavior: none;
   background:
     linear-gradient(rgba(182, 241, 200, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(126, 221, 208, 0.025) 1px, transparent 1px),
@@ -51,10 +57,12 @@ body {
 button,
 a {
   font: inherit;
+  touch-action: manipulation;
 }
 
 button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled {
@@ -63,10 +71,10 @@ button:disabled {
 }
 
 .app-shell {
-  min-height: 100vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 }
 
 .game-frame {
@@ -196,6 +204,7 @@ button:disabled {
   border-radius: 8px;
   background: #020608;
   aspect-ratio: 16 / 9;
+  min-height: 0;
 }
 
 .phaser-game {
@@ -218,6 +227,8 @@ button:disabled {
   display: grid;
   place-items: center;
   padding: 18px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
   background:
     linear-gradient(180deg, rgba(247, 241, 220, 0.08), rgba(0, 0, 0, 0)),
     radial-gradient(circle at 50% 45%, rgba(7, 24, 23, 0.82), rgba(0, 0, 0, 0.72));
@@ -227,8 +238,14 @@ button:disabled {
   background: rgba(0, 0, 0, 0.42);
 }
 
+.summary-overlay {
+  place-items: start center;
+}
+
 .terminal-panel {
   width: min(620px, 100%);
+  max-height: 100%;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background:
@@ -316,15 +333,27 @@ button:disabled {
 }
 
 .summary-panel {
-  max-height: 94%;
+  width: min(560px, 100%);
+  max-height: 100%;
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.summary-panel .panel-logo {
+  width: 116px;
+  margin-bottom: 12px;
+}
+
+.summary-panel h2 {
+  font-size: clamp(1.55rem, 4vw, 3rem);
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 18px;
-  margin-top: 18px;
+  gap: 7px 18px;
+  margin-top: 14px;
   text-align: left;
 }
 
@@ -339,7 +368,7 @@ button:disabled {
 
 .summary-copy {
   color: var(--ink);
-  font-size: 0.94rem;
+  font-size: 0.88rem;
 }
 
 .button-row {
@@ -348,6 +377,40 @@ button:disabled {
   justify-content: center;
   gap: 10px;
   margin-top: 20px;
+}
+
+.touch-controls {
+  position: relative;
+  z-index: 2;
+  display: none;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.touch-controls button {
+  border: 1px solid rgba(126, 221, 208, 0.38);
+  border-radius: 6px;
+  min-height: 54px;
+  background:
+    linear-gradient(180deg, rgba(182, 241, 200, 0.16), rgba(126, 221, 208, 0.08)),
+    rgba(2, 16, 18, 0.86);
+  color: var(--green);
+  font-size: 1.35rem;
+  box-shadow:
+    inset 0 0 18px rgba(182, 241, 200, 0.08),
+    0 8px 18px rgba(0, 0, 0, 0.24);
+  user-select: none;
+}
+
+.touch-controls button:nth-child(2) {
+  color: var(--amber);
+  border-color: rgba(244, 212, 130, 0.5);
+}
+
+.touch-controls button:active {
+  transform: translateY(1px);
+  background: rgba(182, 241, 200, 0.22);
 }
 
 .console-row {
@@ -391,7 +454,7 @@ button:disabled {
 
 @media (max-width: 800px) {
   .app-shell {
-    padding: 10px;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
     place-items: start center;
   }
 
@@ -406,7 +469,7 @@ button:disabled {
   }
 
   .hud-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .hud-tile-wide {
@@ -425,6 +488,10 @@ button:disabled {
     display: none;
   }
 
+  .touch-controls {
+    display: grid;
+  }
+
   .console-actions {
     width: 100%;
   }
@@ -435,12 +502,36 @@ button:disabled {
 }
 
 @media (max-width: 520px) {
+  .brand-ribbon {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .brand-ribbon > span {
+    display: none;
+  }
+
+  .brand-lockup {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .brand-lockup img {
+    width: 96px;
+    padding: 6px 8px;
+  }
+
+  .brand-lockup span {
+    font-size: 0.72rem;
+  }
+
   .hud-grid {
     gap: 6px;
+    margin-bottom: 8px;
   }
 
   .hud-tile {
-    min-height: 52px;
+    min-height: 46px;
     padding: 7px 8px;
   }
 
@@ -452,5 +543,229 @@ button:disabled {
 
   .hud-tile strong {
     font-size: 0.84rem;
+  }
+
+  .screen-overlay {
+    padding: 8px;
+  }
+
+  .terminal-panel {
+    padding: 12px;
+  }
+
+  .summary-panel {
+    padding: 10px;
+  }
+
+  .terminal-panel:not(.summary-panel) .panel-logo {
+    display: none;
+  }
+
+  .terminal-panel h1 {
+    font-size: clamp(1.55rem, 8vw, 2.1rem);
+    line-height: 1;
+  }
+
+  .terminal-panel h2 {
+    font-size: clamp(1.4rem, 7vw, 1.9rem);
+    line-height: 1;
+  }
+
+  .terminal-panel p {
+    margin-top: 10px;
+  }
+
+  .intro-copy {
+    display: none;
+  }
+
+  .summary-panel .panel-logo,
+  .summary-copy {
+    display: none;
+  }
+
+  .summary-panel h2 {
+    font-size: clamp(1.25rem, 6vw, 1.65rem);
+  }
+
+  .summary-grid {
+    gap: 4px 10px;
+    margin-top: 8px;
+    font-size: 0.72rem;
+  }
+
+  .button-row {
+    gap: 7px;
+    margin-top: 10px;
+  }
+
+  .button-row .primary-button,
+  .button-row .secondary-button {
+    flex: 1 1 132px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .console-actions button {
+    min-height: 40px;
+    padding: 9px 10px;
+  }
+
+  .touch-controls {
+    margin-top: 8px;
+  }
+
+  .touch-controls button {
+    min-height: 50px;
+  }
+
+  .console-row {
+    gap: 8px;
+    margin-top: 8px;
+    padding: 8px;
+  }
+
+  .console-row p {
+    font-size: 0.78rem;
+  }
+
+  .metrics-strip {
+    margin-top: 8px;
+  }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .app-shell {
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+    place-items: center;
+  }
+
+  .game-frame {
+    width: min(100%, calc((100svh - 154px) * 16 / 9));
+    padding: 8px;
+  }
+
+  .brand-ribbon {
+    margin-bottom: 6px;
+  }
+
+  .brand-lockup img {
+    width: 84px;
+    padding: 5px 7px;
+  }
+
+  .brand-ribbon > span,
+  .brand-lockup span,
+  .metrics-strip {
+    display: none;
+  }
+
+  .hud-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .hud-tile,
+  .hud-tile-wide {
+    grid-column: span 1;
+    min-height: 40px;
+    padding: 5px 7px;
+  }
+
+  .hud-tile span {
+    font-size: 0.62rem;
+  }
+
+  .hud-tile strong {
+    font-size: 0.72rem;
+  }
+
+  .touch-controls {
+    display: none;
+  }
+
+  .screen-overlay {
+    padding: 8px;
+  }
+
+  .terminal-panel {
+    padding: 12px;
+    width: min(430px, 100%);
+  }
+
+  .summary-panel {
+    padding: 9px 10px;
+    width: min(390px, 100%);
+  }
+
+  .terminal-panel:not(.summary-panel) .panel-logo,
+  .intro-copy,
+  .control-strip {
+    display: none;
+  }
+
+  .summary-panel .panel-logo,
+  .summary-copy {
+    display: none;
+  }
+
+  .terminal-panel h1 {
+    font-size: clamp(1.7rem, 9svh, 2.35rem);
+    line-height: 1;
+  }
+
+  .terminal-panel h2 {
+    font-size: clamp(1.5rem, 8svh, 2.1rem);
+    line-height: 1;
+  }
+
+  .terminal-panel p {
+    margin-top: 8px;
+  }
+
+  .summary-panel h2 {
+    font-size: clamp(1.2rem, 7svh, 1.6rem);
+  }
+
+  .summary-grid {
+    gap: 3px 10px;
+    margin-top: 6px;
+    font-size: 0.68rem;
+    line-height: 1.25;
+  }
+
+  .button-row {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .button-row .primary-button,
+  .button-row .secondary-button {
+    min-height: 30px;
+    padding: 5px 8px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .console-actions button {
+    min-height: 34px;
+    padding: 6px 9px;
+  }
+
+  .console-row {
+    align-items: center;
+    flex-direction: row;
+    margin-top: 6px;
+    padding: 6px 8px;
+  }
+
+  .console-actions {
+    width: auto;
+  }
+
+  .console-actions button {
+    min-height: 30px;
+    padding: 5px 8px;
   }
 }

@@ -36,6 +36,8 @@ export default function App() {
     restartGame,
     togglePause,
     toggleMute,
+    setVirtualDirection,
+    setVirtualFire,
   } = usePhaserGame();
 
   const statusText = useMemo(() => {
@@ -92,7 +94,7 @@ export default function App() {
                 <img className="panel-logo" src="/brand/charta-logo-green.svg" alt="Charta Health" />
                 <p className="eyebrow">AI chart review arcade</p>
                 <h1>Chart Invaders</h1>
-                <p>
+                <p className="intro-copy">
                   Clear {GAME_CONFIG.maxWaves} escalating waves of coding errors,
                   documentation gaps, and denial risks before they cross the pre-billing line.
                 </p>
@@ -121,7 +123,7 @@ export default function App() {
           )}
 
           {state.screen === 'gameOver' && runSummary && (
-            <div className="screen-overlay">
+            <div className="screen-overlay summary-overlay">
               <div className="terminal-panel summary-panel">
                 <img className="panel-logo" src="/brand/charta-logo-green.svg" alt="Charta Health" />
                 <p className="eyebrow">{runSummary.reasonLabel}</p>
@@ -155,6 +157,39 @@ export default function App() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="touch-controls" aria-label="Touch controls">
+          <button
+            type="button"
+            aria-label="Move left"
+            onPointerDown={() => setVirtualDirection(-1)}
+            onPointerUp={() => setVirtualDirection(0)}
+            onPointerCancel={() => setVirtualDirection(0)}
+            onPointerLeave={() => setVirtualDirection(0)}
+          >
+            &#9664;
+          </button>
+          <button
+            type="button"
+            aria-label="Fire"
+            onPointerDown={() => setVirtualFire(true)}
+            onPointerUp={() => setVirtualFire(false)}
+            onPointerCancel={() => setVirtualFire(false)}
+            onPointerLeave={() => setVirtualFire(false)}
+          >
+            &#9679;
+          </button>
+          <button
+            type="button"
+            aria-label="Move right"
+            onPointerDown={() => setVirtualDirection(1)}
+            onPointerUp={() => setVirtualDirection(0)}
+            onPointerCancel={() => setVirtualDirection(0)}
+            onPointerLeave={() => setVirtualDirection(0)}
+          >
+            &#9654;
+          </button>
         </div>
 
         <div className="console-row">
